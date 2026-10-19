@@ -1,0 +1,454 @@
+# 导入 manim 库中的所有类
+from manim import *
+# 导入 numpy 库用于数学计算
+import numpy as np
+
+# 设置全局背景色为深色
+config.background_color = "#1C1C1C"
+
+# 定义场景类，继承自 Scene
+class DOFScene(Scene):
+    # 辅助函数：创建工程图纸风格的垂直尺寸标注（适用于 l 和 Delta）
+    def create_vertical_dimension(self, p1, p2, text, offset=1.0, color=WHITE):
+        # 计算两个点之间的水平向量
+        vec = p2 - p1
+        # 归一化向量
+        unit_vec = vec / np.linalg.norm(vec)
+        # 计算向下的垂直向量
+        perp_vec = np.array([0, -1, 0])
+        
+        # 计算尺寸线端点1的坐标（向下偏移）
+        ext_p1 = p1 + perp_vec * offset
+        # 计算尺寸线端点2的坐标（向下偏移）
+        ext_p2 = p2 + perp_vec * offset
+        
+        # 绘制从原点到尺寸线端点的细引线（向下延长一点）
+        line_ext1 = Line(p1, ext_p1 + perp_vec * 0.2, color=color, stroke_width=1)
+        # 绘制从另一个原点到尺寸线端点的细引线（向下延长一点）
+        line_ext2 = Line(p2, ext_p2 + perp_vec * 0.2, color=color, stroke_width=1)
+        
+        # 绘制尺寸线主体（连接两个偏移端点）
+        dim_line = Line(ext_p1, ext_p2, color=color, stroke_width=2)
+        
+        # 在尺寸线左端添加朝内的箭头（指向左端点）
+        arrow1 = Arrow(ext_p1 + unit_vec * 0.4, ext_p1, buff=0, color=color, tip_length=0.15)
+        # 在尺寸线右端添加朝内的箭头（指向右端点）
+        arrow2 = Arrow(ext_p2 - unit_vec * 0.4, ext_p2, buff=0, color=color, tip_length=0.15)
+        
+        # 计算尺寸线的中点
+        mid_point = (ext_p1 + ext_p2) / 2
+        # 计算尺寸文字的位置（再向下偏移一点，避免压线）
+        text_pos = mid_point + perp_vec * 0.3
+        # 创建尺寸文字的数学文本对象
+        text_mobj = MathTex(text, font_size=32, color=color).move_to(text_pos)
+        
+        # 返回包含所有尺寸标注元素的组
+        return VGroup(line_ext1, line_ext2, dim_line, arrow1, arrow2, text_mobj)
+
+    # 辅助函数：创建工程图纸风格的斜向尺寸标注（适用于 z 和 z'）
+    def create_slanted_dimension(self, p1, p2, text, direction=UL, offset=0.8, color=WHITE):
+        # 判断方向（使用 np.array_equal 避免数组比较报错）
+        if np.array_equal(direction, UL):
+            # 左上方向向量
+            unit_vec = np.array([-1, 1, 0]) / np.sqrt(2)
+        # 如果是右下角
+        elif np.array_equal(direction, DR):
+            # 右下方向向量
+            unit_vec = np.array([1, -1, 0]) / np.sqrt(2)
+        # 默认左上角
+        else:
+            unit_vec = np.array([-1, 1, 0]) / np.sqrt(2)
+        
+        # 计算尺寸线端点的坐标（沿着斜向单位向量偏移）
+        ext_p1 = p1 + unit_vec * offset
+        # 计算另一个尺寸线端点
+        ext_p2 = p2 + unit_vec * offset
+        
+        # 绘制从原点到尺寸线端点的细引线，稍微延长一点
+        line_ext1 = Line(p1, ext_p1 + unit_vec * 0.15, color=color, stroke_width=1)
+        # 绘制从另一个原点到尺寸线端点的细引线
+        line_ext2 = Line(p2, ext_p2 + unit_vec * 0.15, color=color, stroke_width=1)
+        
+        # 绘制尺寸线主体（连接两个偏移端点）
+        dim_line = Line(ext_p1, ext_p2, color=color, stroke_width=2)
+        
+        # 确定尺寸线的方向向量（用于箭头方向）
+        line_vec = ext_p2 - ext_p1
+        # 归一化尺寸线方向向量
+        line_unit_vec = line_vec / np.linalg.norm(line_vec)
+        
+        # 在尺寸线左端添加朝内的箭头
+        arrow1 = Arrow(ext_p1 + line_unit_vec * 0.4, ext_p1, buff=0, color=color, tip_length=0.15)
+        # 在尺寸线右端添加朝内的箭头
+        arrow2 = Arrow(ext_p2 - line_unit_vec * 0.4, ext_p2, buff=0, color=color, tip_length=0.15)
+        
+        # 计算尺寸线的中点坐标
+        mid_point = (ext_p1 + ext_p2) / 2
+        # 计算尺寸文字的位置（偏移一点，避免与尺寸线交叠）
+        text_pos = mid_point + unit_vec * 0.2
+        # 创建尺寸文字的数学文本对象
+        text_mobj = MathTex(text, font_size=32, color=color).move_to(text_pos)
+        
+        # 返回包含所有尺寸标注元素的组
+        return VGroup(line_ext1, line_ext2, dim_line, arrow1, arrow2, text_mobj)
+
+    # 辅助函数：创建带中间箭头的实线/虚线光线
+    def create_ray_with_mid_arrow(self, start, end, color, is_dashed=False):
+        # 判断是否使用虚线
+        if is_dashed:
+            # 创建虚线
+            line = DashedLine(start, end, color=color, stroke_width=2)
+        else:
+            # 创建实线
+            line = Line(start, end, color=color, stroke_width=2)
+        
+        # 获取线的中点
+        mid_point = line.get_center()
+        # 获取线的角度
+        angle = line.get_angle()
+        
+        # 创建短箭头
+        arrow = Arrow(start=mid_point - RIGHT*0.2, end=mid_point + RIGHT*0.2, buff=0, color=color, tip_length=0.12, stroke_width=2)
+        # 旋转箭头与线对齐
+        arrow.rotate(angle, about_point=mid_point)
+        
+        # 返回包含线和箭头的组
+        return VGroup(line, arrow)
+
+    # 主构建方法
+    def construct(self):
+        # ==================== 1. 基础布局与坐标硬编码 ====================
+        # 设定入瞳半口径
+        a_val = 1.0
+        # 设定物距 l
+        l_val = 2.5
+        # 设定远景深度 delta
+        delta_val = 1.0
+
+        # 设定整体向右平移的量（新增变量）
+        shift_x = 1.5
+
+        
+        # 远景平面 X 坐标
+        x_far = -l_val - delta_val - shift_x
+        # 对焦平面 X 坐标
+        x_focus = -l_val - shift_x
+        # 入瞳面 X 坐标
+        x_pupil = -shift_x  
+        # 像面 X 坐标
+        x_image = 2.0 - shift_x
+        
+        # 【修改】光轴长度大幅缩短，右端到 x=2.5 就行，远离公式区
+        optical_axis = Line(start=LEFT * 6.5, end=RIGHT * 0.8, color=WHITE)
+        # 创建对焦平面
+        focus_plane = Line(start=np.array([x_focus, -2.2, 0]), end=np.array([x_focus, 2.2, 0]), color=GREEN)
+        # 创建入瞳面
+        pupil_line = Line(start=np.array([x_pupil, -a_val, 0]), end=np.array([x_pupil, a_val, 0]), color=YELLOW)
+        # 创建像面
+        image_plane = Line(start=np.array([x_image, -1.1, 0]), end=np.array([x_image, 1.1, 0]), color=BLUE)
+        
+        # 光轴标签放在最左侧
+        label_axis = Text("光轴", font="SimHei", font_size=24).move_to(np.array([-6.0, -0.4, 0]))
+        # 入瞳标签
+        label_pupil = Text("入瞳", font="SimHei", font_size=24, color=YELLOW).next_to(pupil_line, UP, buff=0.3)
+        # 对焦平面标签（抬高一点）
+        label_focus = Text("对焦平面", font="SimHei", font_size=24, color=GREEN).next_to(focus_plane, UP, buff=0.1)
+        # 像面标签
+        label_image = Text("像面(探测器)", font="SimHei", font_size=24, color=BLUE).next_to(image_plane, UP, buff=0.1)
+        
+        # 播放基础几何元素的创建动画
+        self.play(Create(optical_axis), Create(focus_plane), Create(pupil_line), Create(image_plane))
+        # 播放基础标签的淡入动画
+        self.play(FadeIn(label_axis), FadeIn(label_pupil), FadeIn(label_focus), FadeIn(label_image))
+        
+        # 创建远景平面（虚线）
+        far_plane = DashedLine(start=np.array([x_far, -1.6, 0]), end=np.array([x_far, 1.6, 0]), color=PURPLE)
+        # 远景平面标签，与对焦平面标签错开高度
+        label_far = Text("远景平面", font="SimHei", font_size=20, color=PURPLE).next_to(far_plane, UP, buff=0.1)
+        # 播放远景平面的创建动画
+        self.play(Create(far_plane), FadeIn(label_far))
+        
+        # 【修改】物距 l 的尺寸标注：恢复垂直向下引线
+        dim_l = self.create_vertical_dimension(np.array([x_focus, 0, 0]), np.array([x_pupil, 0, 0]), "l", offset=1.6, color=WHITE)  
+        # 【修改】远景深度 Delta 的尺寸标注：恢复垂直向下引线
+        dim_delta = self.create_vertical_dimension(np.array([x_far, 0, 0]), np.array([x_focus, 0, 0]), r"\Delta_1", offset=2.0, color=WHITE)
+        # 播放尺寸标注的创建动画
+        self.play(Create(dim_l), Create(dim_delta))
+        # 等待 2 秒
+        self.wait(2)
+
+        # ==================== 2. 第一部分：点 A 光路 ====================
+        # 计算点 A 的坐标
+        point_A = np.array([x_focus, 0, 0])
+        # 计算入瞳上边缘点坐标
+        point_a_top = np.array([x_pupil, a_val, 0])
+        # 计算入瞳下边缘点坐标
+        point_a_bot = np.array([x_pupil, -a_val, 0])
+        # 计算像面中心点坐标
+        point_image_center = np.array([x_image, 0, 0])
+        
+        # 创建点 A 的圆点
+        dot_A = Dot(point_A, color=RED_E, radius=0.05)
+        # 创建点 A 的标签（左下侧）
+        label_A = MathTex("A", font_size=24, color=RED_E).next_to(dot_A, DOWN, buff=0.2).shift(LEFT*0.2)
+        # 播放点 A 及其标签的创建动画
+        self.play(FadeIn(dot_A), FadeIn(label_A))
+        
+        # 创建从 A 点到入瞳上边缘的发散光线1
+        ray1_A_to_top = self.create_ray_with_mid_arrow(point_A, point_a_top, BLUE_B)
+        # 创建从 A 点到入瞳下边缘的发散光线2
+        ray2_A_to_bot = self.create_ray_with_mid_arrow(point_A, point_a_bot, BLUE_B)
+        # 播放发散光线的创建动画
+        self.play(Create(ray1_A_to_top), Create(ray2_A_to_bot))
+        # 等待 0.5 秒
+        self.wait(0.5)
+        
+        # 创建从入瞳上边缘到像面中心的汇聚光线
+        ray1_top_to_img = self.create_ray_with_mid_arrow(point_a_top, point_image_center, BLUE_B)
+        # 创建从入瞳下边缘到像面中心的汇聚光线
+        ray2_bot_to_img = self.create_ray_with_mid_arrow(point_a_bot, point_image_center, BLUE_B)
+        # 播放汇聚光线的创建动画
+        self.play(Create(ray1_top_to_img), Create(ray2_bot_to_img))
+        # 等待 2 秒
+        self.wait(2)
+        
+        # 创建第一部分说明文字
+        text_part1 = Text("A点发出充满入瞳口径的上下光线，先发散，后汇聚在像面中心", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=0.5)
+        # 播放说明文字的淡入动画
+        self.play(FadeIn(text_part1))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放说明文字的淡出动画
+        self.play(FadeOut(text_part1))
+
+        # ==================== 3. 第二部分：点 B 光路与 z1,z2 ====================
+        # 计算点 B 的坐标
+        point_B = np.array([x_far, 0, 0])
+        # 创建点 B 的圆点
+        dot_B = Dot(point_B, color=YELLOW)
+        # 创建点 B 的标签（左下侧）
+        label_B = MathTex("B", font_size=20, color=YELLOW).next_to(dot_B, DOWN, buff=0.2).shift(LEFT*0.2)
+        # 播放点 B 及其标签的创建动画
+        self.play(FadeIn(dot_B), FadeIn(label_B))
+        
+        # 计算光线 3 的斜率
+        slope_3 = (a_val - 0) / (x_pupil - x_far)
+        # 计算光线 3 与对焦平面的交点 y 坐标（z1）
+        y_z1 = slope_3 * (x_focus - x_far)
+        # 计算点 z1 的坐标
+        point_z1 = np.array([x_focus, y_z1, 0])
+        
+        # 计算光线 4 的斜率
+        slope_4 = (-a_val - 0) / (x_pupil - x_far)
+        # 计算光线 4 与对焦平面的交点 y 坐标（z2）
+        y_z2 = slope_4 * (x_focus - x_far)
+        # 计算点 z2 的坐标
+        point_z2 = np.array([x_focus, y_z2, 0])
+        
+        # 创建从 B 点到入瞳上边缘的虚线光线
+        ray3_B_to_top = self.create_ray_with_mid_arrow(point_B, point_a_top, GREEN_B, is_dashed=True)
+        # 创建从 B 点到入瞳下边缘的虚线光线
+        ray4_B_to_bot = self.create_ray_with_mid_arrow(point_B, point_a_bot, GREEN_B, is_dashed=True)
+        
+        # 创建点 z1 的圆点
+        dot_z1 = Dot(point_z1, color=DARK_BLUE, radius=0.06)
+        # 创建点 z2 的圆点
+        dot_z2 = Dot(point_z2, color=DARK_BLUE, radius=0.06)
+        # 创建点 z1 的标签（左上侧，避开线段）
+        label_z1 = MathTex("z_1", font_size=30, color=WHITE).next_to(dot_z1, UP, buff=0.20).shift(RIGHT*0.3)
+        # 创建点 z2 的标签（左下侧，避开线段）
+        label_z2 = MathTex("z_2", font_size=30, color=WHITE).next_to(dot_z2, DOWN, buff=0.20).shift(RIGHT*0.3)
+        
+        # 播放光线 3、4 的创建动画
+        self.play(Create(ray3_B_to_top), Create(ray4_B_to_bot))
+        # 播放点 z1、z2 及其标签的创建动画
+        self.play(FadeIn(dot_z1), FadeIn(dot_z2), FadeIn(label_z1), FadeIn(label_z2))
+        
+        # 物高 z 尺寸标注：斜向左上方引出,用我们自定义的辅助函数专门用来画斜向的尺寸线，而不是水平或垂直的。UL 代表 Up-Left（左上）。它告诉函数：引线要从 z1、z2 这两个点向左上方偏移，形成一个斜向的尺寸标注。offset=0.9 表示尺寸线与 z1、z2 的距离，color=WHITE 表示尺寸线的颜色为白色。
+        dim_z = self.create_slanted_dimension(point_z1, point_z2, "z", direction=UL, offset=0.9, color=WHITE)
+        # 播放物高 z 尺寸标注的创建动画
+        self.play(Create(dim_z))
+        
+        # 创建第二部分说明文字
+        text_part2 = Text("B点发出的光线，在对焦平面处交于点z1、点z2，在对焦平面处形成物高 z", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=0.5)
+        # 播放说明文字的淡入动画
+        self.play(FadeIn(text_part2))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放说明文字的淡出动画
+        self.play(FadeOut(text_part2))
+
+        # ==================== 4. 第三部分：主光线与 z'1, z'2 ====================
+        # 计算主光线 1 的斜率
+        slope_z1_center = (0 - y_z1) / (x_pupil - x_focus)
+        # 计算主光线 1 与像面的交点 y 坐标（z'1）
+        y_z1_prime = slope_z1_center * (x_image - x_pupil)
+        # 计算点 z'1 的坐标
+        point_z1_prime = np.array([x_image, y_z1_prime, 0])
+        
+        # 计算主光线 2 的斜率
+        slope_z2_center = (0 - y_z2) / (x_pupil - x_focus)
+        # 计算主光线 2 与像面的交点 y 坐标（z'2）
+        y_z2_prime = slope_z2_center * (x_image - x_pupil)
+        # 计算点 z'2 的坐标
+        point_z2_prime = np.array([x_image, y_z2_prime, 0])
+        
+        # 创建主光线 1（橙色虚线）
+        principal_ray1 = DashedLine(point_z1, point_z1_prime, color=ORANGE, stroke_width=2)
+        # 创建主光线 2（橙色虚线）
+        principal_ray2 = DashedLine(point_z2, point_z2_prime, color=ORANGE, stroke_width=2)
+        
+        # 创建从入瞳上边缘到像面 z'1 的虚线汇聚光线
+        ray3_out = self.create_ray_with_mid_arrow(point_a_top, point_z1_prime, GREEN_B, is_dashed=True)
+        # 创建从入瞳下边缘到像面 z'2 的虚线汇聚光线
+        ray4_out = self.create_ray_with_mid_arrow(point_a_bot, point_z2_prime, GREEN_B, is_dashed=True)
+        
+        # 创建点 z'1 的圆点
+        dot_z1_prime = Dot(point_z1_prime, color=RED, radius=0.05)
+        # 创建点 z'2 的圆点
+        dot_z2_prime = Dot(point_z2_prime, color=RED, radius=0.05)
+        # 将 z'1 标签放在外侧（右下方）
+        label_z1_prime = MathTex("z'_1", font_size=30, color=WHITE).next_to(dot_z1_prime, DOWN, buff=0.15).shift(RIGHT*0.2)
+        # 将 z'2 标签放在外侧（右上方）
+        label_z2_prime = MathTex("z'_2", font_size=30, color=WHITE).next_to(dot_z2_prime, UP, buff=0.15).shift(RIGHT*0.2)
+        
+        # 播放主光线的创建动画
+        self.play(Create(principal_ray1), Create(principal_ray2))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放点 z'1、z'2 及其标签的创建动画
+        self.play(FadeIn(dot_z1_prime), FadeIn(dot_z2_prime), FadeIn(label_z1_prime), FadeIn(label_z2_prime))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放汇聚光线的创建动画
+        self.play(Create(ray3_out), Create(ray4_out))
+       
+        
+        # 创建第三部分说明文字
+        text_part3_1 = Text("z1点、z2点发出的经过入瞳中心的两条主光线，分别交于像面z'1、z'2两点", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=1.0)
+        text_part3_2 = Text("z'1、z'2两点之间的距离即为像高 z'", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=0.5)
+        # 播放说明文字的淡入动画
+        self.play(FadeIn(text_part3_1), FadeIn(text_part3_2))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放说明文字的淡出动画
+        self.play(FadeOut(text_part3_1), FadeOut(text_part3_2))
+
+        # 像高 z' 尺寸标注：斜向右下方引出
+        dim_z_prime = self.create_slanted_dimension(point_z1_prime, point_z2_prime, "z'", direction=DR, offset=0.9, color=WHITE)
+        # 播放像高 z' 尺寸标注的创建动画
+        self.play(Create(dim_z_prime))
+        
+        # 创建第四部分说明文字
+        text_part4_1 = Text("通过主光线确定像高z'，B点发出的上光线", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=1.0)
+        text_part4_2 = Text("经过z1点后入射到入瞳上边缘，出射后经过像面上的z'1点", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=0.5)
+        # 播放说明文字的淡入动画
+        self.play(FadeIn(text_part4_1), FadeIn(text_part4_2))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放说明文字的淡出动画
+        self.play(FadeOut(text_part4_1), FadeOut(text_part4_2))
+
+        # 创建第五部分说明文字
+        text_part5_1 = Text("通过主光线确定像高z'，B点发出的下光线，", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=1.0)
+        text_part5_2 = Text("经过z1点后入射到入瞳下边缘，出射后经过像面上的z'2点", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=0.5)
+        # 播放说明文字的淡入动画
+        self.play(FadeIn(text_part5_1), FadeIn(text_part5_2))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放说明文字的淡出动画
+        self.play(FadeOut(text_part5_1), FadeOut(text_part5_2))
+
+        # ==================== 5. 第四部分：相似三角形与公式推导 ====================
+        # 创建入瞳上边缘点标签
+        label_a_top = MathTex("a_{1}", font_size=30, color=WHITE).next_to(point_a_top, RIGHT, buff=0.18)
+        # 创建入瞳下边缘点标签
+        label_a_bot = MathTex("a_{2}", font_size=30, color=WHITE).next_to(point_a_bot, RIGHT, buff=0.18)
+        # 播放边缘点标签的淡入动画
+        self.play(FadeIn(label_a_top), FadeIn(label_a_bot))
+        
+        # 高亮小三角形（使用高对比度亮黄色，提高透明度）
+        triangle_small = Polygon(point_B, point_z1, point_z2, color=YELLOW, fill_opacity=0.4, stroke_width=0)
+        # 高亮大三角形（使用高对比度亮粉色，提高透明度）
+        triangle_large = Polygon(point_B, point_a_top, point_a_bot, color=PINK, fill_opacity=0.2, stroke_width=0.5)
+        
+        # 先播放小三角形的高亮动画
+        self.play(FadeIn(triangle_small))
+        # 等待 3 秒
+        self.wait(3)
+        # 再播放大三角形的高亮动画
+        self.play(FadeIn(triangle_large))
+        
+        # --- 公式推导区域：严格物理隔离，放在屏幕右侧 (x=4.8) ---
+        # 创建推导公式组
+        derivation_group = VGroup()
+        
+        # 创建说明文字
+        text_similar = Text("由 △BZ1Z2 相似于 △Ba1a2得：", font="SimHei", font_size=20, color=WHITE)
+        # 将说明文字添加到推导组
+        derivation_group.add(text_similar)
+        
+        # 创建大括号
+        brace = MathTex(r"\left\{", font_size=100, color=WHITE)
+        
+        # 创建公式 1
+        eq1 = MathTex(r"\frac{z}{\Delta_1} = \frac{2a}{l + \Delta_1}", font_size=36, color=WHITE)
+        # 创建公式 2
+        eq2 = MathTex(r"\Delta_1 = \frac{l z}{2a - z}", font_size=36, color=WHITE)
+        # 创建公式 3
+        eq3 = MathTex(r"\beta = \frac{z'}{z}  , \quad z' = D \varepsilon", font_size=36, color=WHITE)
+        # 创建公式 4
+        eq4 = MathTex(r"\Delta_1 = \frac{D \varepsilon l}{2a \beta - D \varepsilon}", font_size=40, color=WHITE)
+        
+        # 将公式纵向排列
+        eq_group = VGroup(eq1, eq2, eq3, eq4).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        # 将大括号和公式组横向排列
+        brace_and_eq = VGroup(brace, eq_group).arrange(RIGHT, buff=0.15)
+        
+        # 将括号和公式块添加到推导组
+        derivation_group.add(brace_and_eq)
+        # 将说明文字和括号公式块纵向排列
+        derivation_group.arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        
+        # 放大公式组，并强制移动到绝对坐标 (4.8, 0.5)，完全远离光路图
+        derivation_group.scale(1.0).move_to(np.array([3.8, 0.5, 0]))
+        
+        # 播放说明文字的淡入动画
+        self.play(FadeIn(text_similar))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放大括号和公式 1 的创建动画
+        self.play(FadeIn(brace), Write(eq1))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放公式 2 的创建动画
+        self.play(Write(eq2))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放公式 3 的创建动画
+        self.play(Write(eq3))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放公式 4 的创建动画
+        self.play(Write(eq4))
+        
+ # 创建第六部分说明文字
+        text_part6_1 = Text("公式中，D为人眼明视距离，ε为人眼极限分辨角，二者均为常数", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=1.0)
+        text_part6_2 = Text("因此，远景深度 Δ1 仅与对焦距离 l、入瞳口径 2a、物像放大倍率 β 有关", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=0.5) 
+        # 播放说明文字的淡入动画
+        self.play(FadeIn(text_part6_1), FadeIn(text_part6_2))
+        # 等待 2 秒
+        self.wait(2)
+        # 播放说明文字的淡出动画
+        self.play(FadeOut(text_part6_1), FadeOut(text_part6_2))
+
+        # 创建最终的说明文字
+        text_final = Text("远景深度 Δ1 公式推导完成", font="SimHei", font_size=24, color=WHITE).to_edge(DOWN, buff=0.5)
+        # 播放最终说明文字的淡入动画
+        self.play(FadeIn(text_final))
+        
+        # 等待 6 秒，供用户观看
+        self.wait(6)
+        
+        # 淡出所有元素，结束动画
+        self.play(FadeOut(Group(*self.mobjects)))
