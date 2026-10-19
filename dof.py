@@ -11,8 +11,8 @@ class DynamicDOFScene(Scene):
     # 定义构建方法，这是所有动画渲染的逻辑入口
     def construct(self):
         # ==================== 1. 物理参数与坐标系设定 ====================
-        # 设定入瞳的半径（透镜的半口径）
-        a = 0.5
+        # 设定入瞳的半径（透镜的半口径，增大此值可让张角变大）
+        a = 1.0
         # 设定当前对焦平面的物距
         u0 = 3.0
         # 设定像距（像面到入瞳的距离）
@@ -31,16 +31,16 @@ class DynamicDOFScene(Scene):
         # 设定像面的 x 坐标
         x_image = v
         
-        # 设定人眼明视距离 D
-        D = 2.0
+        # 设定人眼明视距离 D（缩短此值可让张角变大）
+        D = 1.2
         # 计算人眼中心的 x 坐标（在像面右侧距离 D 处）
         x_eye = x_image + D
         # 设定人眼外轮廓的半径
-        R_eye = 0.3
+        R_eye = 0.25
 
-        # 设定极限分辨角对应的像面半高度
-        y_eps = 0.125
-        # 计算动态弥散圆的缩放系数，确保在远景/近景时刚好充满人眼
+        # 设定极限分辨角对应的像面半高度（与真实弥散圆最大值同步，设为0.25）
+        y_eps = 0.25
+        # 计算动态弥散圆的缩放系数，此时刚好为 1.0，物理自洽
         blur_scale = R_eye / y_eps
 
         # ==================== 2. 顶部文字说明 ====================
@@ -90,9 +90,9 @@ class DynamicDOFScene(Scene):
         # 创建人眼外轮廓（白色圆圈）
         eye_outer = Circle(radius=R_eye, color=WHITE).move_to(np.array([x_eye, 0, 0]))
         # 创建人眼瞳孔（白色圆点，偏左代表向左看）
-        eye_pupil = Dot(point=np.array([x_eye - 0.1, 0, 0]), radius=0.08, color=WHITE)
-        # 创建人眼文字标签，放在眼睛正下方
-        label_eye = Text("人眼", font="SimHei", font_size=18, color=WHITE).next_to(eye_outer, DR, buff=0.3)
+        eye_pupil = Dot(point=np.array([x_eye - 0.08, 0, 0]), radius=0.06, color=WHITE)
+        # 创建人眼文字标签，放在眼睛右下角
+        label_eye = Text("人眼", font="SimHei", font_size=18, color=WHITE).next_to(eye_outer, DR, buff=0.12)
 
         # ==================== 4. 工程制图尺寸标注（静态） ====================
         # 定义通用的水平尺寸标注辅助函数
@@ -187,9 +187,9 @@ class DynamicDOFScene(Scene):
         x_tracker = ValueTracker(x_far)
         
         # 动态绘制假想平面（黄色实线）
-        plane = always_redraw(lambda: Line(np.array([x_tracker.get_value(), -1.2, 0]), np.array([x_tracker.get_value(), 1.2, 0]), color=YELLOW, stroke_width=3))
+        plane = always_redraw(lambda: Line(np.array([x_tracker.get_value(), -1.5, 0]), np.array([x_tracker.get_value(), 1.5, 0]), color=YELLOW, stroke_width=3))
         
-        # 【新增】动态绘制假想平面中心的蓝色圆点，随平面移动
+        # 动态绘制假想平面中心的蓝色圆点，随平面移动
         plane_center_dot = always_redraw(lambda: Dot(np.array([x_tracker.get_value(), 0, 0]), color=BLUE, radius=0.06))
         
         # 动态放置假想平面的文字标签
